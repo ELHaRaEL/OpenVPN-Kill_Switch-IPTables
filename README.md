@@ -1,9 +1,9 @@
 # OpenVPN-Kill_Switch-IPTables
 Automatic kill switch using Iptables with OpenVPN
 
-Full kill switch where when enabled only one group can make any connection via VPN only.
+Full kill switch where when enabled only root can make any connection to VPN server only.
 
-If the tunnel closes or crashes, even root cannot create the tunnel or any connection because only one group can connect using only OPENVPN, connecting only to the IP and PORT needed to operate the tunnel.
+If the tunnel closes or crashes, only root can create the tunnel and connecting only to the IP and PORT needed to operate the tunnel.
 
 # What does the script do?
 
@@ -26,11 +26,11 @@ Killswitch can read domain adrress. (IP for iptable)
 groupadd -r vpnroute       
 ```
 2. Add permission for the group so you don't have to enter the password every time.
-Create file 'vpnroute' in /etc/sudoers.d:
+Add in /etc/sudoers.d:
 ```
 %vpnroute ALL=NOPASSWD: /usr/bin/killall openvpn
 %vpnroute ALL=NOPASSWD: /usr/sbin/iptables
-%vpnroute ALL=NOPASSWD: /usr/sbin/openvpn
+USERNAME ALL=NOPASSWD: /usr/sbin/openvpn
 ```
 3. Set in script path to folder with *.ovpn files and path to file with username and password. 
 (--auth-user-pass)
@@ -68,6 +68,6 @@ curl
     # Allow established sessions to receive traffic
     sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
     # Allow vpn
-    #sudo iptables -A OUTPUT -d x.x.x.x -p tcp --dport XX -m owner --gid-owner vpnroute -o $DEVICE -j ACCEPT
+    #sudo iptables -A OUTPUT -d x.x.x.x -p tcp --dport XX -m owner --uid-owner root -o $DEVICE -j ACCEPT
 
 
