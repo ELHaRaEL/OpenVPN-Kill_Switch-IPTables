@@ -1,8 +1,15 @@
 #!/bin/bash
 ######################################
-### MODIFY
 
+
+
+######################################
+### MODIFY
+###################
 DEVICE=enp4s0
+TUN=tun0
+VPNGROUP=vpnroute
+###################
 
 VPNFOLDER="$(pwd)/VPN"
 #folder with .ovpn files
@@ -15,6 +22,7 @@ PASSWORDFILE="$(pwd)/auth-user-pass"
 ping_time=10
 ping_delay=0.5
 
+###################
 ### END MODIFY
 ######################################
 
@@ -107,7 +115,7 @@ select ovpn in ${FilesNamesToSelect[*]}
         if [[ "$REPLY" =~ ^[0-9]+$ ]]; then
         if [ $REPLY -le ${#FilesNamesToSelect[*]} ]; then
             clear
-            sudo openvpn --group vpnroute --config "$VPNFOLDER/$ovpn" --daemon --auth-user-pass "$PASSWORDFILE"
+            sudo openvpn --config "$VPNFOLDER/$ovpn" --daemon --auth-user-pass "$PASSWORDFILE"
             echo -e "Choosed: $ovpn\n"
               for i in $(seq 0 4)
                  do
@@ -138,28 +146,28 @@ function Save_Backup
     if [ -e iptables.conf ]; then
       read -p "The iptables.conf file already exists. Do you want to overwrite it? [Y/N]" answer
       if [[ $answer =~ [Yy] ]]; then
-        sudo iptables-save > iptables.conf
-        echo -e "\n$(sudo iptables-save)\n" >> iptables-backup.conf
+        sudo -g $VPNGROUP sudo iptables-save > iptables.conf
+        echo -e "\n$(sudo -g $VPNGROUP sudo iptables-save)\n" >> iptables-backup.conf
         echo -e "The iptables.conf file has been overwritten.\nAll backups with timestamp are in iptables-backup.conf"
       else
         echo "The iptables.conf file was not overwritten."
       fi
     else
-      sudo iptables-save > iptables.conf
-      echo -e "\n$(sudo iptables-save)\n" >> iptables-backup.conf
+      sudo -g $VPNGROUP sudo iptables-save > iptables.conf
+      echo -e "\n$(sudo -g $VPNGROUP sudo iptables-save)\n" >> iptables-backup.conf
       echo -e "The iptables.conf file has been saved.\nAll backups with timestamp are in iptables-backup.conf"
     fi
 }
 
 function Flush_IPTables
 {
-    sudo iptables --flush
-    sudo iptables --delete-chain
-    sudo iptables -t nat --flush
-    sudo iptables -t nat --delete-chain
-    sudo iptables -P INPUT ACCEPT
-    sudo iptables -P FORWARD ACCEPT
-    sudo iptables -P OUTPUT ACCEPT
+    sudo -g $VPNGROUP sudo iptables --flush
+    sudo -g $VPNGROUP sudo iptables --delete-chain
+    sudo -g $VPNGROUP sudo iptables -t nat --flush
+    sudo -g $VPNGROUP sudo iptables -t nat --delete-chain
+    sudo -g $VPNGROUP sudo iptables -P INPUT ACCEPT
+    sudo -g $VPNGROUP sudo iptables -P FORWARD ACCEPT
+    sudo -g $VPNGROUP sudo iptables -P OUTPUT ACCEPT
     Kill_Switch=false
 }
 
@@ -185,14 +193,14 @@ function Read_IPandPORTS_from_ovpn_file
 function Block_All_Traffic
 {
     clear
-    sudo iptables --flush
-    sudo iptables --delete-chain
-    sudo iptables -t nat --flush
-    sudo iptables -t nat --delete-chain
-    sudo iptables -P INPUT DROP
-    sudo iptables -P FORWARD DROP
-    sudo iptables -P OUTPUT DROP
-    sudo iptables -S
+    sudo -g $VPNGROUP sudo iptables --flush
+    sudo -g $VPNGROUP sudo iptables --delete-chain
+    sudo -g $VPNGROUP sudo iptables -t nat --flush
+    sudo -g $VPNGROUP sudo iptables -t nat --delete-chain
+    sudo -g $VPNGROUP sudo iptables -P INPUT DROP
+    sudo -g $VPNGROUP sudo iptables -P FORWARD DROP
+    sudo -g $VPNGROUP sudo iptables -P OUTPUT DROP
+    sudo -g $VPNGROUP sudo iptables -S
     echo -e "\nAll traffic blocked\n"
 }
 
@@ -214,36 +222,36 @@ function Kill_Switch
 {
     Read_IPandPORTS_from_ovpn_file
     # Clear iptables
-    sudo iptables --flush
-    sudo iptables --delete-chain
-    sudo iptables -t nat --flush
-    sudo iptables -t nat --delete-chain
-    # Drop everything
-    sudo iptables -P INPUT DROP
-    sudo iptables -P FORWARD DROP
-    sudo iptables -P OUTPUT DROP
-    # Forward - better watch iptables -S
-    sudo iptables -A FORWARD
-    # Allow Loopback and Ping
-    sudo iptables -A INPUT -i lo -j ACCEPT
-    sudo iptables -A OUTPUT -o lo -j ACCEPT
-    # Allow to communicate within the LAN
-    sudo iptables -A INPUT -s 192.168.1.0/24 -d 192.168.1.0/24 -i enp4s0 -j ACCEPT
-    sudo iptables -A OUTPUT -s 192.168.1.0/24 -d 192.168.1.0/24 -o enp4s0 -j ACCEPT
-    # Accept tunel out/in
-    sudo iptables -A INPUT -i tun0 -j ACCEPT 
-    sudo iptables -A OUTPUT -o tun0 -j ACCEPT 
-    # Allow established sessions to receive traffic
-    sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-    # Allow DNS
-    #sudo iptables -A OUTPUT -d 127.0.0.53 -m owner --gid-owner vpnroute -o enp4s0 -j ACCEPT
-    #sudo iptables -A OUTPUT -d 1.1.1.1 -m owner --gid-owner vpnroute -o enp4s0 -j ACCEPT
-    #sudo iptables -A OUTPUT -d 8.8.8.8 -m owner --gid-owner vpnroute -o enp4s0 -j ACCEPT
+    sudo -g $VPNGROUP sudo iptables --flush
+    sudo -g $VPNGROUP sudo iptables --delete-chain
+    sudo -g $VPNGROUP sudo iptables -t nat --flush
+    sudo -g $VPNGROUP sudo iptables -t nat --delete-chain
+
     # Allow vpn
     for index in "${IPSandPORTS[@]}"
         do
-            sudo iptables -A OUTPUT -d "${index% *}" -p tcp --dport "${index#* }" -m owner --gid-owner vpnroute -o $DEVICE -j ACCEPT
+            sudo -g $VPNGROUP sudo iptables -A OUTPUT -d "${index% *}" -p tcp --dport "${index#* }" -m owner --uid-owner root -o $DEVICE -j ACCEPT
         done
+
+    # Allow established sessions to receive traffic
+    sudo -g $VPNGROUP sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+    # Forward - better watch iptables -S
+    sudo -g $VPNGROUP sudo iptables -A FORWARD
+    # Allow Loopback and Ping
+    sudo -g $VPNGROUP sudo iptables -A INPUT -i lo -j ACCEPT
+    sudo -g $VPNGROUP sudo iptables -A OUTPUT -o lo -j ACCEPT
+    # Allow to communicate within the LAN
+    sudo -g $VPNGROUP sudo iptables -A INPUT -s 192.168.1.0/24 -d 192.168.1.0/24 -i $DEVICE -j ACCEPT
+    sudo -g $VPNGROUP sudo iptables -A OUTPUT -s 192.168.1.0/24 -d 192.168.1.0/24 -o $DEVICE -j ACCEPT
+    # Accept tunel out/in
+    sudo -g $VPNGROUP sudo iptables -A INPUT -i $TUN -j ACCEPT 
+    sudo -g $VPNGROUP sudo iptables -A OUTPUT -o $TUN -j ACCEPT 
+  
+    # Drop everything
+    sudo -g $VPNGROUP sudo iptables -P INPUT DROP
+    sudo -g $VPNGROUP sudo iptables -P FORWARD DROP
+    sudo -g $VPNGROUP sudo iptables -P OUTPUT DROP
     Kill_Switch=true
 }
 
@@ -258,9 +266,9 @@ processid=$(pgrep openvpn);
         echo "[y/n]"
         read ans
             case $ans in
-                Y|y|yes|1 )  echo "Yes"; sudo killall openvpn ;;
+                Y|y|yes|1 )  echo "Yes"; sudo -g $VPNGROUP sudo killall openvpn ;;
                 N|n|no|2  )  echo "No";;
-                *         )  echo "Default - killall openvpn process"; sudo killall openvpn ; exit ;;
+                *         )  echo "Default - killall openvpn process"; sudo -g $VPNGROUP sudo killall openvpn ; exit ;;
             esac
         sleep 2
         clear
@@ -273,10 +281,10 @@ read ans
     case $ans in
         B|b )  Block_All_Traffic ;;
         C|c )  clear ; Check_Start_IP ;;
-        I|i )  clear ; sudo iptables -S ; echo -e "\n\n" ;;
-        R|r )  clear ; Flush_IPTables ; sudo iptables -S ; Check_Start_IP ;;
+        I|i )  clear ; sudo -g $VPNGROUP sudo iptables -S ; echo -e "\n\n" ;;
+        R|r )  clear ; Flush_IPTables ; sudo -g $VPNGROUP sudo iptables -S ; Check_Start_IP ;;
         S|s )  clear ; Save_Backup ;;
-        L|l )  clear ; sudo iptables-restore < iptables.conf ;   echo -e "The iptables.conf file has been restored.";;
+        L|l )  clear ; sudo -g $VPNGROUP sudo iptables-restore < iptables.conf ;   echo -e "The iptables.conf file has been restored.";;
          *  )  clear ;;
     esac
 
@@ -290,12 +298,12 @@ while true; do
     echo "What's next?"
     echo "1) Check IP (curl ipinfo.io)"
     echo "2) Check is openvpn working"
-    echo -e "3) sudo killall openvpn  &  go to menu\n"
+    echo -e "3) sudo -g $VPNGROUP sudo killall openvpn  &  go to menu\n"
 
-    echo "5) Block all traffic & sudo iptables -S"
-    echo "6) Set Kill_Switch & sudo iptables -S"
+    echo "5) Block all traffic & sudo -g $VPNGROUP sudo iptables -S"
+    echo "6) Set Kill_Switch & sudo -g $VPNGROUP sudo iptables -S"
     echo "7) Flush iptables ipv4"   
-    echo "8) sudo iptables -S"
+    echo "8) sudo -g $VPNGROUP sudo iptables -S"
     echo "9) ping -c 5 1.1.1.1"
     echo "21) Save iptable backup"
     echo "22) Restore iptable backup"
@@ -305,14 +313,14 @@ while true; do
     case "${anwser^^}" in
         "1") clear ; Check_Actualy_IP ;;
         "2") clear ; echo "Process ID:"; pgrep openvpn  ;;
-        "3") sudo killall openvpn ; clear ; Show_Intro ; Select_VPN ;;
+        "3") sudo -g $VPNGROUP sudo killall openvpn ; clear ; Show_Intro ; Select_VPN ;;
         "5") Block_All_Traffic ;;
-        "6") Kill_Switch ; sudo iptables -S ;;       
-        "7") Flush_IPTables ; sudo iptables -S ;;
-        "8") sudo iptables -S;;
+        "6") Kill_Switch ; sudo -g $VPNGROUP sudo iptables -S ;;       
+        "7") Flush_IPTables ; sudo -g $VPNGROUP sudo iptables -S ;;
+        "8") sudo -g $VPNGROUP sudo iptables -S;;
         "9") ping -c 5 1.1.1.1 | ts ;;
         "21") Save_Backup ;;
-        "22") sudo iptables-restore < iptables.conf ; echo -e "The iptables.conf file has been restored.";;
+        "22") sudo -g $VPNGROUP sudo iptables-restore < iptables.conf ; echo -e "The iptables.conf file has been restored.";;
         "Q") break ;;
         *) echo "You must choose!" ;;
     esac
