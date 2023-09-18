@@ -30,6 +30,9 @@ Add in /etc/sudoers.d:
 ```
 %vpnroute ALL=NOPASSWD: /usr/bin/killall openvpn
 %vpnroute ALL=NOPASSWD: /usr/sbin/iptables
+%vpnroute ALL=NOPASSWD: /usr/sbin/iptables-restore
+%vpnroute ALL=NOPASSWD: /usr/sbin/iptables-save
+
 USERNAME ALL=NOPASSWD: /usr/sbin/openvpn
 ```
 3. Set in script path to folder with *.ovpn files and path to file with username and password. 
