@@ -270,32 +270,6 @@ function Kill_Switch
 
 
 #////////////////////////////////////
-
-
-function Check
-{
-    echo -e "Trying to check IP - ipinfo.io/ip ... timeout 10s"
-    ipData=$(sg vpnroute -c 'curl --fail --silent --show-error --max-time 10 ipinfo.io') > /dev/null    
-    ipDataIp=$(echo "$ipData" | grep '"ip"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p')
-    ipDataHostname=$(echo "$ipData" | grep '"hostname"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' ) 
-    ipDataCity=$(echo "$ipData" | grep '"city"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
-    ipDataRegion=$(echo "$ipData" | grep '"region"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
-    ipDataCountry=$(echo "$ipData" | grep '"country"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
-    ipDataLocalization=$(echo "$ipData" | grep '"loc"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
-    ipDataOrganization=$(echo "$ipData" | grep '"org"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
-    ipDataTimezone=$(echo "$ipData" | grep '"timezone"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
-    clear
-    echo
-    echo -e "\nConfiguration .ovpn file: $ovpn\n\nYour IP at start: $startip\nActually IP:      $ipDataIp\n"
-    echo -e "Hostname:         $ipDataHostname"
-    echo -e "Organization:     $ipDataOrganization"
-    echo -e "Localization:     $ipDataCountry -- $ipDataRegion -- $ipDataCity -- [$ipDataLocalization]"
-    echo -e "Timezone:         $ipDataTimezone"
-}
-
-
-
-#//////////////////////////////////////
 processid=$(pgrep openvpn);
     if [ -n "$processid" ]; then
         echo "OpenVPN process detected:"| pgrep openvpn
@@ -361,5 +335,3 @@ while true; do
         *) echo "You must choose!" ;;
     esac
 done
-
-       
