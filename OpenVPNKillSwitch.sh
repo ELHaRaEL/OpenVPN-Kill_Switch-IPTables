@@ -80,8 +80,8 @@ function Read_IPs_From_ovpn_Files {
                     ((CountSuccesPing++))
                 else
                     ip=$(nslookup "$server" | awk '/^Address: / { print $2 }')
-                    if [[ -n $ip ]]; then
-                        IPs+=("$ip")
+                    if [[ -n $ipDataIp ]]; then
+                        IPs+=("$ipDataIp")
                         ((CountSuccesPing++))
                         FilesNames+=("$(basename "$file")")
                     else
@@ -182,7 +182,7 @@ function Read_IPandPORTS_from_ovpn_file
                     IPSandPORTS+=("$domain $port")
              else
                    ip=$(nslookup "$domain" | awk '/^Address: / { print $2 }')
-                   if [[ -n $ip ]]; then
+                   if [[ -n $ipDataIp ]]; then
                        IPSandPORTS+=("$domain $port")
                    fi
              fi
@@ -207,9 +207,21 @@ function Block_All_Traffic
 function Check_Actualy_IP
 {
     echo -e "Trying to check IP - ipinfo.io/ip ... timeout 10s"
-    ip=$(sg vpnroute -c 'curl --fail --silent --show-error --max-time 10 ipinfo.io/ip') > /dev/null
+    ipData=$(sg vpnroute -c 'curl --fail --silent --show-error --max-time 10 ipinfo.io') > /dev/null    
+    ipDataIp=$(echo "$ipData" | grep '"ip"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p')
+    ipDataHostname=$(echo "$ipData" | grep '"hostname"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' ) 
+    ipDataCity=$(echo "$ipData" | grep '"city"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataRegion=$(echo "$ipData" | grep '"region"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataCountry=$(echo "$ipData" | grep '"country"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataLocalization=$(echo "$ipData" | grep '"loc"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataOrganization=$(echo "$ipData" | grep '"org"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataTimezone=$(echo "$ipData" | grep '"timezone"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
     clear
-    echo -e "\nConfiguration .ovpn file: $ovpn\n\nYour IP at start: $startip\nActually IP:      $ip"
+    echo -e "Configuration .ovpn file: $ovpn\n\nYour IP at start: $startip\nActually IP:      $ipDataIp\n"
+    echo -e "Hostname:         $ipDataHostname"
+    echo -e "Organization:     $ipDataOrganization"
+    echo -e "Localization:     $ipDataCountry -- $ipDataRegion -- $ipDataCity -- [$ipDataLocalization]"
+    echo -e "Timezone:         $ipDataTimezone"
 }
 
 function Check_Start_IP
@@ -259,6 +271,31 @@ function Kill_Switch
 
 #////////////////////////////////////
 
+
+function Check
+{
+    echo -e "Trying to check IP - ipinfo.io/ip ... timeout 10s"
+    ipData=$(sg vpnroute -c 'curl --fail --silent --show-error --max-time 10 ipinfo.io') > /dev/null    
+    ipDataIp=$(echo "$ipData" | grep '"ip"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p')
+    ipDataHostname=$(echo "$ipData" | grep '"hostname"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' ) 
+    ipDataCity=$(echo "$ipData" | grep '"city"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataRegion=$(echo "$ipData" | grep '"region"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataCountry=$(echo "$ipData" | grep '"country"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataLocalization=$(echo "$ipData" | grep '"loc"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataOrganization=$(echo "$ipData" | grep '"org"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    ipDataTimezone=$(echo "$ipData" | grep '"timezone"' | sed -n 's/[^"]*"[^"]*"[^"]*"\([^"]*\)".*/\1/p' )
+    clear
+    echo
+    echo -e "\nConfiguration .ovpn file: $ovpn\n\nYour IP at start: $startip\nActually IP:      $ipDataIp\n"
+    echo -e "Hostname:         $ipDataHostname"
+    echo -e "Organization:     $ipDataOrganization"
+    echo -e "Localization:     $ipDataCountry -- $ipDataRegion -- $ipDataCity -- [$ipDataLocalization]"
+    echo -e "Timezone:         $ipDataTimezone"
+}
+
+
+
+#//////////////////////////////////////
 processid=$(pgrep openvpn);
     if [ -n "$processid" ]; then
         echo "OpenVPN process detected:"| pgrep openvpn
@@ -293,12 +330,11 @@ Show_Intro
 Select_VPN
 
 while true; do
-    echo -e "\nKill_Switch:      "$Kill_Switch
-    echo ""
+    echo -e "\n                                           Kill_Switch:  "$Kill_Switch
     echo "What's next?"
     echo "1) Check IP (curl ipinfo.io)"
     echo "2) Check is openvpn working"
-    echo -e "3) sudo -g $VPNGROUP sudo killall openvpn  &  go to menu\n"
+    echo -e "3) sudo -g $VPNGROUP sudo killall openvpn  &  go to menu"
 
     echo "5) Block all traffic & sudo -g $VPNGROUP sudo iptables -S"
     echo "6) Set Kill_Switch & sudo -g $VPNGROUP sudo iptables -S"
@@ -324,7 +360,6 @@ while true; do
         "Q") break ;;
         *) echo "You must choose!" ;;
     esac
-    echo -e "\n\n"
 done
 
        
