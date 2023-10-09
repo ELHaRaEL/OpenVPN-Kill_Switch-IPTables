@@ -6,9 +6,12 @@
 ######################################
 ### MODIFY
 ###################
-DEVICE=enp4s0
-TUN=tun0
-VPNGROUP=vpnroute
+DEVICE=enp4s0                           ###
+TUN=tun0                                ###
+VPNGROUP=vpnroute                       ###  Group with privileges to can use 'iptables' & 'killall openvpn' without password
+PROTO=tcp              ###  tcp/udp     ###  If in .ovpn will not be 'proto' then use this settings in killswitch
+SUBNET=192.168.1.0/24                   ###  Subnet for local communication
+DAEMON=true            ###  true/false  ###  If true, then openvpn run as daemon
 ###################
 
 VPNFOLDER="$(pwd)/VPN"
@@ -115,7 +118,11 @@ select ovpn in ${FilesNamesToSelect[*]}
         if [[ "$REPLY" =~ ^[0-9]+$ ]]; then
         if [ $REPLY -le ${#FilesNamesToSelect[*]} ]; then
             clear
-            sudo openvpn --config "$VPNFOLDER/$ovpn" --daemon --auth-user-pass "$PASSWORDFILE"
+                if [ "$DAEMON" == "true" ]; then
+                    sudo openvpn --config "$VPNFOLDER/$ovpn" --daemon --auth-user-pass "$PASSWORDFILE"
+                else
+                    sudo openvpn --config "$VPNFOLDER/$ovpn" --auth-user-pass "$PASSWORDFILE"
+                fi             
             echo -e "Choosed: $ovpn\n"
               for i in $(seq 0 4)
                  do
@@ -187,6 +194,9 @@ function Read_IPandPORTS_from_ovpn_file
                    fi
              fi
     fi
+    if [[ "$line" == "proto "* ]]; then
+        PROTO=$(echo "$line" | awk '{ print $2 }')
+    fi
   done < "$VPNFOLDER/$ovpn"
 }
 
@@ -242,7 +252,7 @@ function Kill_Switch
     # Allow vpn
     for index in "${IPSandPORTS[@]}"
         do
-            sudo -g $VPNGROUP sudo iptables -A OUTPUT -d "${index% *}" -p tcp --dport "${index#* }" -m owner --uid-owner root -o $DEVICE -j ACCEPT
+            sudo -g $VPNGROUP sudo iptables -A OUTPUT -d "${index% *}" -p $PROTO --dport "${index#* }" -m owner --uid-owner root -o $DEVICE -j ACCEPT
         done
 
     # Allow established sessions to receive traffic
@@ -254,8 +264,8 @@ function Kill_Switch
     sudo -g $VPNGROUP sudo iptables -A INPUT -i lo -j ACCEPT
     sudo -g $VPNGROUP sudo iptables -A OUTPUT -o lo -j ACCEPT
     # Allow to communicate within the LAN
-    sudo -g $VPNGROUP sudo iptables -A INPUT -s 192.168.1.0/24 -d 192.168.1.0/24 -i $DEVICE -j ACCEPT
-    sudo -g $VPNGROUP sudo iptables -A OUTPUT -s 192.168.1.0/24 -d 192.168.1.0/24 -o $DEVICE -j ACCEPT
+    sudo -g $VPNGROUP sudo iptables -A INPUT -s $SUBNET -d $SUBNET -i $DEVICE -j ACCEPT
+    sudo -g $VPNGROUP sudo iptables -A OUTPUT -s $SUBNET -d $SUBNET -o $DEVICE -j ACCEPT
     # Accept tunel out/in
     sudo -g $VPNGROUP sudo iptables -A INPUT -i $TUN -j ACCEPT 
     sudo -g $VPNGROUP sudo iptables -A OUTPUT -o $TUN -j ACCEPT 
@@ -335,3 +345,5 @@ while true; do
         *) echo "You must choose!" ;;
     esac
 done
+
+       
